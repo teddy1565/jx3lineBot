@@ -13,28 +13,52 @@ let dbConfig = {
 }
 
 function getMessageType(param){
-	return param.events[0].source.type;
+	let result = false;
+	try{
+		result = param.events[0].source.type;
+	}catch{
+		result = false;
+	}
+	return result;
 }
 function getUserID(param){
-	return param.events[0].source.userId;
+	let result = false;
+	try{
+		result = param.events[0].source.userId;
+	}catch{
+		result = false;
+	}
+	return result;
 }
 function getGroupID(param){
-	return param.events[0].source.roomId;
+	let result = false;
+	try{
+		result = param.events[0].source.roomId;
+	}catch{
+		result = false;
+	}
+	return result;
 }
 function getReplyToken(param){
-	return param.events[0].replyToken;
+	let result = false;
+	try{
+		result = param.events[0].replyToken;
+	}catch{
+		result = false;
+	}
+	return result;
 }
 async function handler(req,res){
-	console.log(req.body);
 	let queryPool = await mysql.createPool(dbConfig);
 	let msgType = getMessageType(req.body);
         if(msgType=="user"){
                 let UID = getUserID(req.body);
-		let SQLResult = await queryPool.query(`SELECT \`UID\` FROM \`temp_001\`.\`user\` WHERE \`UID\`=\"?\"`,[UID]);
+		let SQLResult = await queryPool.query(`SELECT \`UID\` FROM \`temp_001\`.\`user\` WHERE \`UID\` = "?"`,[UID]);
 		console.log(SQLResult);
+		console.log(`${SQLResult}`);
 		let replyMessage = {
 			type:'text',
-			text:`${SQLResult}`
+			text:`${UID}`
 		}
 		res.json(await lineBOT.replyMessage(getReplyToken(req.body),replyMessage));
         }else if(msgType=="room"){
