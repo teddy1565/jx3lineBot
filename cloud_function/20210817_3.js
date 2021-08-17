@@ -25,6 +25,7 @@ function getReplyToken(param){
 	return param.events[0].replyToken;
 }
 async function handler(req,res){
+	console.log(req.body);
 	let queryPool = await mysql.createPool(dbConfig);
 	let msgType = getMessageType(req.body);
         if(msgType=="user"){
