@@ -42,6 +42,7 @@ async function handler(req,res){
         }else{
                 res.status(200).send();
         }
+	queryPool.end();
 }
 exports.route = (req,res)=>{
 	handler(req,res);
