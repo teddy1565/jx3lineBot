@@ -53,9 +53,21 @@ async function handler(req,res){
 	let msgType = getMessageType(req.body);
         if(msgType=="user"){
                 let UID = getUserID(req.body);
-		let SQLResult = await queryPool.query(`SELECT \`UID\` FROM \`temp_001\`.\`user\` WHERE \`UID\` = "?"`,[UID]);
-		console.log(SQLResult);
-		console.log(`${SQLResult}`);
+		let queryString = `SELECT \`UID\` FROM \`temp_001\`.\`user\` WHERE \`UID\` = "${UID}"`;
+		let SQLResult = await queryPool.query(queryString);
+		try{
+			if(SQLResult.length==0){
+				let replyMessage = {
+					type:'text',
+					text:"尚未註冊,無法使用功能"
+				}
+			}else{
+				/*分析訊息*/
+			}
+		}catch{
+			res.status(200).send();
+			return 0;
+		}
 		let replyMessage = {
 			type:'text',
 			text:`${UID}`
