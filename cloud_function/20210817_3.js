@@ -21,6 +21,15 @@ function getMessageType(param){
 	}
 	return result;
 }
+function getMessageContextType(param){
+	let result = false;
+	try{
+		result = param.events[0].message.type;
+	}catch{
+		result = false;
+	}
+	return result;
+}
 function getUserID(param){
 	let result = false;
 	try{
@@ -48,6 +57,17 @@ function getReplyToken(param){
 	}
 	return result;
 }
+function getMessageContext(param,type){
+	let result = undefined;
+	if(type=="text"){
+		try{
+			result = param.events[0].message.text;
+		}catch{
+			result = undefined;
+		}
+	}
+	return result;
+}
 async function handler(req,res){
 	let queryPool = await mysql.createPool(dbConfig);
 	let msgType = getMessageType(req.body);
@@ -59,20 +79,21 @@ async function handler(req,res){
 			if(SQLResult.length==0){
 				let replyMessage = {
 					type:'text',
-					text:"尚未註冊,無法使用功能"
+					text:"尚未註冊，無法啟用服務\n目前開發中，尚未啟用註冊功能"
 				}
+				res.json(await lineBOT.replyMessage(getReplyToken(req.body),replyMessage));
 			}else{
 				/*分析訊息*/
+				let replyMessage = {
+					type:'text',
+					text:`帳號辨識成功`
+				}
+				res.json(await lineBOT.replyMessage(getReplyToken(req.body),replyMessage));
 			}
 		}catch{
 			res.status(200).send();
 			return 0;
 		}
-		let replyMessage = {
-			type:'text',
-			text:`${UID}`
-		}
-		res.json(await lineBOT.replyMessage(getReplyToken(req.body),replyMessage));
         }else if(msgType=="room"){
                 let GID = getGroupID(req.body);
 		res.status(200).send();
