@@ -24,7 +24,7 @@ function getGroupID(param){
 function getReplyToken(param){
 	return param.events[0].replyToken;
 }
-async handler(req,rse){
+async function handler(req,res){
 	let queryPool = await mysql.createPool(dbConfig);
 	let msgType = getMessageType(req.body);
         if(msgType=="user"){
