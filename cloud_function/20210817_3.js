@@ -35,7 +35,7 @@ async handler(req,rse){
 			type:'text',
 			text:`${SQLResult}`
 		}
-		res.json(await lineClinet.replyMessage(getReplyToken(req.body),replyMessage));
+		res.json(await lineBOT.replyMessage(getReplyToken(req.body),replyMessage));
         }else if(msgType=="room"){
                 let GID = getGroupID(req.body);
 		res.status(200).send();
