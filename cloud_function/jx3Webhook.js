@@ -1,7 +1,7 @@
 const line = require("@line/bot-sdk");
 const mysql = require("promise-mysql");
 const fs = require("fs");
-const lineBOT_version = "v0.4.2";
+const lineBOT_version = "v0.6.1";
 let lineConfig = JSON.parse(fs.readFileSync("./lineAPIconfig.json"));
 let lineBOT = new line.Client(lineConfig);
 let dbConfig = JSON.parse(fs.readFileSync("./dbConfig.json"));
@@ -152,7 +152,7 @@ async function operator(context,info,sourceType="room"){
 		console.log("config is obj");
 	}
 	console.log(context);
-    const commandsLists = ["改名","幫助","機器人資訊","註冊","群組資訊","小本本","日常活動","活動提醒","信使","成員管理","指令列表"];
+    const commandsLists = ["改名","幫助","機器人資訊","註冊","群組資訊","小本本","日常活動","活動提醒","信使","成員管理","指令列表","權限管理"];
     if(matchParamStr(context[1],[`${commandsLists[0]}`,"rename"])){
         if(context[2].length<2)return "改名失敗";
         let queryPool = await mysql.createPool(dbConfig);
@@ -194,17 +194,11 @@ async function operator(context,info,sourceType="room"){
         }
         let message = "使用說明:\n"+
                     "所有的指令間皆以空格區隔，比如說:\n"+
-                    "   阿巴阿巴 改名 ODO\n"+
+                    "   阿巴阿巴 改名 ODO\n\n"+
                     "指令解析:\n"+
-                    "  [觸發關鍵字] [指令] [參數]\n"+
-                    "目前可以使用的指令:\n"+
-                    "1.改名:更改機器人名字\n"+
-                    "2.註冊:註冊群組資訊\n"+
-                    "3.幫助(help|指令說明):取得操作及指令說明\n"+
-                    "4.小本本(黑名單):打本小本本\n"+
-                    "5.群組資訊:取得此群組的相關資訊\n"+
-                    "6.機器人資訊:取得機器人相關資訊\n"+
-                    "\n"+
+                    "  [觸發關鍵字] [指令] [參數]\n\n"+
+                    "如果要取得可用指令列表請輸入:\n"+
+                    "  [觸發關鍵字] 指令列表\n\n"+
                     "如果要取得個別指令說明請輸入:\n"+
                     "  [觸發關鍵字] 幫助 [想查詢的指令]";
         return message;
@@ -461,11 +455,11 @@ async function operator(context,info,sourceType="room"){
         }
     }else if(matchParamStr(context[1],[`${commandsLists[9]}`,"memberManagment","membermanagment","HR","人事管理"])){
         let keyWords=["暱稱","ID"];
-        let objkeyWords = ["nickName","gameId"];
+        let objkeyWords = ["nickName","gameId","authority"];
         let configKey = "memberManagment";
         if(matchParamStr(context[2],["新增權限","--add-level","--add-managment","--add-Authority","--add-authority"])){
-            if(context[3]==undefined)return `請輸入${keyWords[0]}(同一群組內暱稱不可重複!)`;
-            else if(context[4]==undefined) return `請輸入參數`;
+            if(context[3]==undefined)return `請輸入${keyWords[0]}`;
+            else if(context[4]==undefined) return "請輸入參數";
             let searchMode = false;
             if(matchParamStr(context[5],[`--with-${objkeyWords[1]}`]))searchMode=true;
             let user = [];
@@ -484,7 +478,7 @@ async function operator(context,info,sourceType="room"){
                     if(flag)break;
                 }
             }else{
-                for(let i in config[configKey][i][objkeyWords[0]]){
+                for(let i in config[configKey]){
                     if(config[configKey][i][objkeyWords[0]]==context[3]){
                         user = config[configKey].splice(i,1);
                         frameMark = i;
@@ -494,10 +488,16 @@ async function operator(context,info,sourceType="room"){
             }
             if(user.length==0){
                 console.log("查無此人，若有疑慮有確認指令格式");
+                return "查無此人，若有疑慮請確認指令格式  "+frameMark;
             }else{
                 user = user[0];
-                user["authority"] = context[4];
-                config[configKey].psuh(user);
+                if(user[objkeyWords[2]]==undefined){
+                    user[objkeyWords[2]] = [];
+                    user[objkeyWords[2]].push(context[4]);
+                }else{
+                    user[objkeyWords[2]].push(context[4]);
+                }
+                config[configKey].push(user);
             }
             let queryPool = await mysql.createPool(dbConfig);
             try{
@@ -510,8 +510,79 @@ async function operator(context,info,sourceType="room"){
             }
             queryPool.end();
             return "新增權限成功";
-        }
-        if(matchParamStr(context[2],["新增","add","Add","ADD","加入"])){
+        }else if(matchParamStr(context[2],["刪除權限","移除權限","--remove-authority","--Remove-Authority"])){
+            if(context[3]==undefined)return `請輸入${keyWords[0]}`;
+            else if(context[4]==undefined)return "請輸入要移除的權限名稱";
+            
+            if(matchParamStr(context[5],["--remove-all","--all"])){
+                for(let i in config[configKey]){
+                    if(config[configKey][i][objkeyWords[0]]==context[3]){
+                        config[configKey][i][objkeyWords[2]]=[];
+                        break;
+                    }
+                }
+                let queryPool = await mysql.createPool(dbConfig);
+                try{
+                    let result = await queryPool.query(queryStrGenerator(schemaName,configToJSON(JSON.stringify(config)),info));
+                    console.log(result);
+                }catch{
+                    console.log("刪除權限失敗001");
+                    queryPool.end();
+                    return "刪除權限失敗";
+                }
+                queryPool.end();
+                return "刪除權限成功";
+            }else{
+                let result = [];
+                for(let i in config[configKey]){
+                    let flag = false;
+                    if(config[configKey][i][objkeyWords[0]]==context[3]){
+                        for(let j in config[configKey][i][objkeyWords[2]]){
+                            if(config[configKey][i][objkeyWords[2]][j]==context[4]){
+                                result = config[configKey][i][objkeyWords[2]].splice(j,1);
+                                flag=true;
+                                break;
+                            }
+                        }
+                    }
+                    if(flag)break;
+                }
+                if(result.length==0)return "雖然此人沒有此權限能夠被移除，但是操作成功";
+                let queryPool = await mysql.createPool(dbConfig);
+                try{
+                    let result = await queryPool.query(queryStrGenerator(schemaName,configToJSON(JSON.stringify(config)),info));
+                    console.log(result);
+                }catch{
+                    console.log("權限刪除操作失敗002");
+                    queryPool.end();
+                    return "權限刪除失敗";
+                }
+                queryPool.end();
+                return "權限刪除成功";
+            }
+        }else if(matchParamStr(context[2],["權限查詢","查詢權限","--query-authority","--Query-Authority","--query-Authority"])){
+            if(context[3]==undefined)return `請輸入${keyWords[0]}`;
+            let responseStr = "此人所擁有的權限:\n\n";
+            let querylist = [];
+            let flag =false;
+            for(let i in config[configKey]){
+                if(!config[configKey][i][objkeyWords[2]])continue;
+                if(config[configKey][i][objkeyWords[0]]==context[3]){
+                    for(let j in config[configKey][i][objkeyWords[2]]){
+                        querylist.push(config[configKey][i][objkeyWords[2]][j]);
+                    }
+                    flag = true;
+                    break;
+                }
+            }
+            if(flag==false)return "查無此人，請重新確認輸入資訊";
+            else if(querylist.length==0)return "此人沒有任何權限";
+            for(let i in querylist){
+                responseStr = responseStr+`${i+1}. ${querylist[i]}\n`;
+            }
+            responseStr = responseStr+"====查詢結束====";
+            return responseStr;
+        }else if(matchParamStr(context[2],["新增","add","Add","ADD","加入"])){
             if(context[3]==undefined)return `請輸入${keyWord[0]}(同一個群組內暱稱不可重複!)`;
             else if(context[4]==undefined)return `請輸入${keyWord[1]}`;
             if(config[configKey]==undefined)config[configKey]=[];
@@ -736,6 +807,124 @@ async function operator(context,info,sourceType="room"){
             resultStr = resultStr+`${i}:\n${commands[i]}\n\n`;
         }
         return resultStr;
+    }else if(matchParamStr(context[1],[`${commandsLists[11]}`,"管理權限","authorityManagment","Authority","Authoritymanagment","authority"])){
+        let configKey = "authorityManagmentControlCenter";
+        let status = "controlCenterStatus";
+        let content = "authorityInstance";
+        let contentKey = ["authorityName","authorityPolicyContent"];
+        if(config[configKey]==undefined&&matchParamStr(context[2],["啟用","啟用權限系統","true","on","open","setup"])){
+            config[configKey]={};
+            config[configKey][status]=true;
+            config[configKey][content] = [];
+            let queryPool = await mysql.createPool(dbConfig);
+            try{
+                let result = await queryPool.query(queryStrGenerator(schemaName,configToJSON(JSON.stringify(config)),info));
+                console.log(result);
+            }catch{
+                console.log("DB寫入失敗");
+                queryPool.end();
+                return "初始化權限系統失敗";
+            }
+            queryPool.end();
+            return "初始化權限系統成功";
+        }else if(config[configKey]==undefined&&(!matchParamStr(context[2],["啟用","啟用權限系統","true","on","open","setup"]))){
+            return `尚未啟用權限系統，如果要啟用權限系統，請輸入:\n${config.keyWord} 權限管理 setup`;
+        }
+        function checkSysStatus(param=config[configKey][status]){
+            if(param==false)return true;
+            return false;
+        }
+        if(matchParamStr(context[2],["新增","add","ADD","Add"])){
+            if(checkSysStatus())return `目前權限系統狀態為關閉，若要開啟，請輸入:\n${config.keyWord} 權限管理 enable`;
+            if(context[3]==undefined)return "請輸入權限名稱";
+            else if(context[4]==undefined)return "請輸入權限政策內容";
+            let policy = context[4].split(",");
+            let target = {};
+            target[contentKey[0]]=context[3];
+            target[contentKey[1]]=[];
+            let frameMark=0;
+            let flag = false;
+            for(let i in config[configKey][content]){
+                if(config[configKey][content][i][contentKey[0]]==undefined)continue;
+                if(config[configKey][content][i][contentKey[0]]==content[3]){
+                    target = config[configKey][content][i];
+                    frameMark=i;
+                    flag = true;
+                    break;
+                }
+            }
+            for(let i in policy){
+                if(policy[i].length==0)continue;
+                target[contentKey[1]].push(policy[i]);
+            }
+            target[contentKey[1]] = ((target)=>{
+                let copy = target[contentKey[1]];
+                try{
+                    for(let i in copy){
+                        let match = copy[i];
+                        for(let j in copy){
+                            if(j==i)continue;
+                            if(copy[j]==match){
+                                copy.splice(j,1);
+                            }
+                        }
+                    }
+                    console.log("權限內容排序func發生錯誤");
+                    return copy;
+                }catch{
+                    return target;
+                }
+            })(target);
+            if(flag==false){
+                config[configKey][content].push(target);
+            }else{
+                config[configKey][content][frameMark] = target;
+            }
+            let queryPool = await mysql.createPool(dbConfig);
+            try{
+                let result = queryPool.query(queryStrGenerator(schemaName,configToJSON(JSON.stringify(config)),info));
+                console.log(result);
+            }catch{
+                console.log("權限管理 新增權限功能發生錯誤");
+                queryPool.end();
+                return "新增失敗";
+            }
+            queryPool.end();
+            return "新增成功";
+        }else if(matchParamStr(context[2],["刪除","移除","remove","delete","Detele","-d","-D"])){
+            if(checkSysStatus())return `目前權限系統狀態為關閉，若要開啟，請輸入:\n${config.keyWord} 權限管理 enable`;
+        }else if(matchParamStr(context[2],["查詢","query","Query","--query","-Q","--Query"])){
+            if(checkSysStatus())return `目前權限系統狀態為關閉，若要開啟，請輸入:\n${config.keyWord} 權限管理 enable`;
+        }else if(matchParamStr(context[2],["編輯","修改","edit","--edit","Edit"])){
+            if(checkSysStatus())return `目前權限系統狀態為關閉，若要開啟，請輸入:\n${config.keyWord} 權限管理 enable`;
+        }else if(matchParamStr(context[2],["開啟","on","open","啟用","start","enable","true","Disable"])){
+            config[configKey][status]=true;
+            let queryPool = await mysql.createPool(dbConfig);
+            try{
+                let result = await queryPool.query(queryStrGenerator(schemaName,configToJSON(JSON.stringify(config)),info));
+                console.log(result);
+            }catch{
+                console.log("權限系統開啟失敗，請確認DB操作");
+                queryPool.end();
+                return "權限系統開啟失敗";
+            }
+            queryPool.end();
+            return "權限系統開啟成功";
+        }else if(matchParamStr(context[2],["關閉","close","Close","disable","false","Disable"])){
+            config[configKey][status]=false;
+            let queryPool = await mysql.createPool(dbConfig);
+            try{
+                let result = await queryPool.query(queryStrGenerator(schemaName,configToJSON(JSON.stringify(config)),info));
+                console.log(result);
+            }catch{
+                console.log("權限系統開啟失敗，請確認DB操作");
+                queryPool.end();
+                return "權限系統關閉失敗";
+            }
+            queryPool.end();
+            return "權限系統關閉成功";
+        }
+        return "請輸入參數[新增|刪除|查詢|編輯|開啟|關閉]";
     }else{
         return "阿巴阿巴~";
     }
